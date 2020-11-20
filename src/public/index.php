@@ -4,17 +4,11 @@ use \Psr\Http\Message\ResponseInterface as Response;
 
 require '../vendor/autoload.php';
 
-include '../lib/utils.php';
-include '../routes/auth.php';
-include '../routes/getToken.php';
-include '../routes/addProduct.php';
-include '../routes/getProduct.php';
-include '../routes/getUser.php';
-include '../routes/getProductsList.php';
-include '../routes/getUserProducts.php';
-include '../routes/getMyProducts.php';
-include '../routes/updateMyRecord.php';
-include '../routes/deleteProduct.php';
+include '../lib/util.php';
+include '../lib/error.php';
+
+include '../app/Product.php';
+include '../app/User.php';
 
 $config['displayErrorDetails'] = true;
 $config['addContentLengthHeader'] = false;
@@ -42,119 +36,37 @@ $container['db'] = function ($c) {
     return $pdo;
 };
 
-$app->get('/auth', function (Request $request, Response $response, array $args) {
-    global $container;
-    auth($container['db'], $request->getQueryParams()['phone_number']);
-    $response->getBody()->write("Сообщение с кодом подтверждения отправлено на указанный номер");
-    return $response;
-});
-$app->get('/get_token', function (Request $request, Response $response, array $args) {
-    global $container;
-    $phone_number = $request->getQueryParams()['phone_number'];
-    $verification_code = $request->getQueryParams()['verification_code'];
-    $response->getBody()->write(json_encode(get_token($container['db'], $phone_number, $verification_code)));
-    return $response;
-});
-$app->get('/add_product', function (Request $request, Response $response, array $args) {
-    global $container;
-    $response->getBody()->write(json_encode(add_product($container['db'],
-        $request->getQueryParams()['token'],
-        $request->getQueryParams()['name'],
-        $request->getQueryParams()['description'],
-        $request->getQueryParams()['price']
-    )));
-    return $response;
-});
-$app->get('/get_product', function (Request $request, Response $response, array $args) {
-    global $container;
-    $response->getBody()->write(json_encode(get_product($container['db'],
-        $request->getQueryParams()['id']
-    )));
-    return $response;
-});
-$app->get('/get_user', function (Request $request, Response $response, array $args) {
-    global $container;
-    $response->getBody()->write(json_encode(get_user($container['db'],
-        $request->getQueryParams()['id']
-    )));
-    return $response;
-});
-$app->get('/get_products_list', function (Request $request, Response $response, array $args) {
-    global $container;
-    if (is_null($request->getQueryParams()['start'])) {
-        $start = 0;
-    }
-    else {
-        $start = $request->getQueryParams()['start'];
-    }
-    if (is_null($request->getQueryParams()['per_page'])) {
-        $per_page = 5;
-    }
-    else {
-        $per_page = $request->getQueryParams()['per_page'];
-    }
-    $response->getBody()->write(json_encode(get_products_list($container['db'],
-        $per_page,
-        $start
-    )));
-    return $response;
-});
-$app->get('/get_user_products', function (Request $request, Response $response, array $args) {
-    global $container;
-    if (is_null($request->getQueryParams()['start'])) {
-        $start = 0;
-    }
-    else {
-        $start = $request->getQueryParams()['start'];
-    }
-    if (is_null($request->getQueryParams()['per_page'])) {
-        $per_page = 5;
-    }
-    else {
-        $per_page = $request->getQueryParams()['per_page'];
-    }
-    $response->getBody()->write(json_encode(get_user_products($container['db'],
-        $request->getQueryParams()['id'],
-        $per_page,
-        $start
-    )));
-    return $response;
-});
-$app->get('/get_my_products', function (Request $request, Response $response, array $args) {
-    global $container;
-    if (is_null($request->getQueryParams()['start'])) {
-        $start = 0;
-    }
-    else {
-        $start = $request->getQueryParams()['start'];
-    }
-    if (is_null($request->getQueryParams()['per_page'])) {
-        $per_page = 5;
-    }
-    else {
-        $per_page = $request->getQueryParams()['per_page'];
-    }
-    $response->getBody()->write(json_encode(get_my_products($container['db'],
-        $request->getQueryParams()['token'],
-        $per_page,
-        $start
-    )));
-    return $response;
-});
-$app->get('/update_my_record', function (Request $request, Response $response, array $args) {
-    global $container;
-    $response->getBody()->write($response->getBody()->write(json_encode(update_my_record($container['db'],
-        $request->getQueryParams()['token'],
-        $request->getQueryParams()
-    ))));
-    return $response;
-});
-$app->get('/delete_product', function (Request $request, Response $response, array $args) {
-    global $container;
-    $response->getBody()->write($response->getBody()->write(json_encode(delete_product($container['db'],
-        $request->getQueryParams()['token'],
-        $request->getQueryParams()['id']
-    ))));
-    return $response;
-});
+$product = new Product($container['db']);
+$user = new User($container['db']);
+
+$methods = [
+    ['post', '/auth', $user, 'add', ['phone_number']],
+    ['get', '/get_token', $user, 'get_token', ['phone_number', 'verification_code']],
+    ['get', '/get_product', $product, 'get', ['id']],
+    ['get', '/get_user', $user, 'get', ['id']],
+    ['get', '/get_products_list', $product, ['start', 'per_page']],
+    ['get', '/get_user_products', $user, ['id', 'start', 'per_page']],
+    ['get', '/get_my_products', $user, ['token', 'start', 'per_page']],
+    ['get', '/get_my_record', $user, ['token']],
+    ['post', '/update_my_record', $user, ['token', 'name']],
+    ['post', '/delete_product', $product, ['id', 'token']],
+    ['post', '/add_product', $product, 'add', ['token', 'name', 'description', 'price']],
+];
+for ($i=0; $i < count($methods); $i++) {
+    call_user_func(
+        array($app, $methods[$i][0]),
+        $methods[$i][1],
+        function (Request $request, Response $response, array $args) use ($methods, $i) {
+            $parameter_list = array();
+            foreach ($methods[$i][4] as $parameter) {
+                array_push($parameter_list, $request->getQueryParams()[$parameter]);
+            }
+            $response->getBody()->write(json_encode(
+                call_user_func_array(array($methods[$i][2], $methods[$i][3]), $parameter_list)
+            ));
+            return $response;
+        }
+    );
+}
+
 $app->run();
