@@ -7,3 +7,4 @@ const NO_PRODUCTS_FOUND = ['error' => 'No products found'];
 const NO_USERS_FOUND = ['error' => 'No users found'];
 const ACCESS_DENIED = ['error' => 'Access denied'];
 const INVALID_CODE = ['error' => 'Invalid verification code'];
+const INVALID_CATEGORY_PATH = ['error' => 'Invalid category path'];

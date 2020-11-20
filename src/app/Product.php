@@ -3,9 +3,11 @@
 class Product
 {
     private $conn;
+    private $category;
 
-    function __construct($conn) {
+    function __construct($conn, $category) {
         $this->conn = $conn;
+        $this->category = $category;
     }
 
     function get($id) {
@@ -18,7 +20,10 @@ class Product
         if ($stmt->rowCount() == 0) {
             return PRODUCT_NOT_FOUND;
         }
-        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        $result = $stmt->fetch(PDO::FETCH_ASSOC);
+        $result['category'] = $this->category->get_full_path($result['category_id']);
+        return $result;
     }
 
     function get_all($start, $per_page) {
@@ -44,7 +49,7 @@ class Product
         $stmt->execute([
             'token' => $token
         ]);
-        $user_id = $stmt->fetchAll(PDO::FETCH_ASSOC)[0]['id'];
+        $user_id = $stmt->fetch(PDO::FETCH_ASSOC)['id'];
         $stmt = $this->conn->prepare('
             INSERT INTO product (name, description, price, user_id)
             VALUES (:name, :description, :price, :user_id)
@@ -81,7 +86,7 @@ class Product
         if ($stmt->rowCount() == 0) {
             return PRODUCT_NOT_FOUND;
         }
-        $user_id = $stmt->fetchAll(PDO::FETCH_ASSOC)[0]['user_id'];
+        $user_id = $stmt->fetch(PDO::FETCH_ASSOC)['user_id'];
         $stmt = $this->conn->prepare('
             SELECT id FROM user
             WHERE token=:token
@@ -89,7 +94,7 @@ class Product
         $stmt->execute([
             'token' => $token
         ]);
-        if ($user_id != $stmt->fetchAll(PDO::FETCH_ASSOC)[0]['id']) {
+        if ($user_id != $stmt->fetch(PDO::FETCH_ASSOC)['id']) {
             return ACCESS_DENIED;
         }
         $stmt = $this->conn->prepare('DELETE FROM product WHERE id = :id');

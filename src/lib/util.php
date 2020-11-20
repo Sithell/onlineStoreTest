@@ -11,9 +11,9 @@ function httpPost($url, $data) {
 }
 
 function sendMessage($message) {
-    $url = "https://api.telegram.org/bot970690429:AAG0Ydbc8CUIo5p1YJ8CQZu2AhZJXQc4N2o/sendMessage";
+    $url = "https://api.telegram.org/".CONFIG['telegram']['bot_id'].':'.CONFIG['telegram']['token'].'/sendMessage';
     $data = array(
-        'chat_id' => 788277446,
+        'chat_id' => CONFIG['chat_id'],
         'text' => $message
     );
     httpPost($url, $data);

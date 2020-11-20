@@ -4,21 +4,18 @@ use \Psr\Http\Message\ResponseInterface as Response;
 
 require '../vendor/autoload.php';
 
+include '../lib/config.php';
+
 include '../lib/util.php';
 include '../lib/error.php';
 
+include '../app/ProductAttribute.php';
+include '../app/Category.php';
 include '../app/Product.php';
 include '../app/User.php';
 
-$config['displayErrorDetails'] = true;
-$config['addContentLengthHeader'] = false;
 
-$config['db']['host']   = 'localhost';
-$config['db']['user']   = 'root';
-$config['db']['pass']   = 'root';
-$config['db']['dbname'] = 'online_store';
-
-$app = new \Slim\App(['settings' => $config]);
+$app = new \Slim\App(['settings' => CONFIG]);
 
 $container = $app->getContainer();
 $container['logger'] = function($c) {
@@ -36,7 +33,9 @@ $container['db'] = function ($c) {
     return $pdo;
 };
 
-$product = new Product($container['db']);
+$product_attribute = new ProductAttribute($container['db']);
+$category = new Category($container['db']);
+$product = new Product($container['db'], $category);
 $user = new User($container['db']);
 
 $methods = [
@@ -44,13 +43,14 @@ $methods = [
     ['get', '/get_token', $user, 'get_token', ['phone_number', 'verification_code']],
     ['get', '/get_product', $product, 'get', ['id']],
     ['get', '/get_user', $user, 'get', ['id']],
-    ['get', '/get_products_list', $product, ['start', 'per_page']],
-    ['get', '/get_user_products', $user, ['id', 'start', 'per_page']],
-    ['get', '/get_my_products', $user, ['token', 'start', 'per_page']],
-    ['get', '/get_my_record', $user, ['token']],
-    ['post', '/update_my_record', $user, ['token', 'name']],
-    ['post', '/delete_product', $product, ['id', 'token']],
+    ['get', '/get_products_list', $product, 'get_all', ['start', 'per_page']],
+    ['get', '/get_user_products', $user, 'get_products', ['id', 'start', 'per_page']],
+    ['get', '/get_my_products', $user, 'get_products_by_token', ['token', 'start', 'per_page']],
+    ['get', '/get_my_record', $user, 'get_by_token', ['token']],
+    ['post', '/update_my_record', $user, 'set', ['token', 'name']],
+    ['post', '/delete_product', $product, 'delete', ['id', 'token']],
     ['post', '/add_product', $product, 'add', ['token', 'name', 'description', 'price']],
+    ['get', '/get_category_id', $category, 'get_id', ['path']],
 ];
 for ($i=0; $i < count($methods); $i++) {
     call_user_func(
@@ -61,10 +61,11 @@ for ($i=0; $i < count($methods); $i++) {
             foreach ($methods[$i][4] as $parameter) {
                 array_push($parameter_list, $request->getQueryParams()[$parameter]);
             }
-            $response->getBody()->write(json_encode(
-                call_user_func_array(array($methods[$i][2], $methods[$i][3]), $parameter_list)
-            ));
-            return $response;
+            return $response
+                ->withHeader("Content-Type", "application/json; charset = utf-8")
+                ->write(json_encode(
+                    call_user_func_array(array($methods[$i][2], $methods[$i][3]), $parameter_list)
+                ));
         }
     );
 }
