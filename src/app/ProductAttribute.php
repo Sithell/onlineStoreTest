@@ -7,5 +7,7 @@ class ProductAttribute
         $this->conn = $conn;
     }
 
-
+    function get($data) {
+        return $data;
+    }
 }

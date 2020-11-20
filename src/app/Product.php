@@ -22,7 +22,20 @@ class Product
         }
 
         $result = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        $stmt = $this->conn->prepare('
+            SELECT name, value FROM product_attribute
+            WHERE product_id=:id
+        ');
+        $stmt->execute([
+            'id' => $id
+        ]);
+        $properties = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        for ($i = 0; $i < count($properties); $i++) {
+            $result['properties'][$properties[$i]['name']] = $properties[$i]['value'];
+        }
         $result['category'] = $this->category->get_full_path($result['category_id']);
+
         return $result;
     }
 
@@ -39,7 +52,7 @@ class Product
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
-    function add($token, $name, $description, $price) {
+    function add($token, $name, $description, $price, $category_id, $properties) {
         if (!isTokenValid($this->conn, $token)) {
             return INVALID_TOKEN;
         }
@@ -51,23 +64,37 @@ class Product
         ]);
         $user_id = $stmt->fetch(PDO::FETCH_ASSOC)['id'];
         $stmt = $this->conn->prepare('
-            INSERT INTO product (name, description, price, user_id)
-            VALUES (:name, :description, :price, :user_id)
+            INSERT INTO product (name, description, price, user_id, category_id)
+            VALUES (:name, :description, :price, :user_id, :category_id)
         ');
         $stmt->execute([
             'name' => $name,
             'description' => $description,
             'price' => $price,
             'user_id' => $user_id,
+            'category_id' => $category_id
         ]);
+        $product_id = $this->conn->lastInsertId();
+        foreach ($properties as $property => $value) {
+            $stmt = $this->conn->prepare('
+                INSERT INTO product_attribute (name, value, product_id)
+                VALUES (:name, :value, :product_id)
+            ');
+            $stmt->execute([
+                'name' => $property,
+                'value' => $value,
+                'product_id' => $product_id,
+            ]);
+        }
         return [
             'status' => 'ok',
             'product' => [
-                'id' => $this->conn->lastInsertId(),
+                'id' => $product_id,
                 'name' => $name,
                 'description' => $description,
                 'price' => $price,
                 'user_id' => $user_id,
+                'properties' => $properties
             ]
         ];
     }
@@ -98,6 +125,10 @@ class Product
             return ACCESS_DENIED;
         }
         $stmt = $this->conn->prepare('DELETE FROM product WHERE id = :id');
+        $stmt->execute(array(
+            'id' => $id
+        ));
+        $stmt = $this->conn->prepare('DELETE FROM product_attribute WHERE product_id = :id');
         $stmt->execute(array(
             'id' => $id
         ));

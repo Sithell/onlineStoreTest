@@ -49,8 +49,9 @@ $methods = [
     ['get', '/get_my_record', $user, 'get_by_token', ['token']],
     ['post', '/update_my_record', $user, 'set', ['token', 'name']],
     ['post', '/delete_product', $product, 'delete', ['id', 'token']],
-    ['post', '/add_product', $product, 'add', ['token', 'name', 'description', 'price']],
+    ['post', '/add_product', $product, 'add', ['token', 'name', 'description', 'price', 'category_id', 'properties']],
     ['get', '/get_category_id', $category, 'get_id', ['path']],
+    ['post', '/test', $product_attribute, 'get', ['data']],
 ];
 for ($i=0; $i < count($methods); $i++) {
     call_user_func(
